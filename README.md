@@ -6,6 +6,7 @@ A simple Flask web app you can use to test cloud deployment.
 
 - `GET /` returns a message and active environment.
 - `GET /health` returns a health check payload.
+- `GET /dashboard` returns a visual status page.
 
 ## Run Locally
 
@@ -44,20 +45,43 @@ docker compose up --build
 
 You can also deploy with the included `render.yaml` Blueprint for one-click setup.
 
-## Cloud Deploy Option 2: Azure App Service (Container)
+## Cloud Deploy Option 2: Azure App Service (Code, no container)
 
-1. Build and test container locally:
+### Prerequisites
+
+1. Install Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli
+2. Login:
 
 ```powershell
-docker build -t py-cloud-test:latest .
-docker run -p 8000:8000 py-cloud-test:latest
+az login
 ```
 
-2. Push image to Azure Container Registry (ACR).
-3. Create Azure App Service (Linux, container-based).
-4. Point App Service to your ACR image.
-5. Ensure the app listens on port `8000`.
-6. Browse `/health` to validate deployment.
+### Fast Deploy (script)
+
+From this project folder:
+
+```powershell
+.\scripts\deploy_azure_code.ps1 -ResourceGroup rg-py-cloud-test -AppName <unique-app-name> -Location eastus
+```
+
+This script will:
+- Create or reuse a resource group
+- Deploy source code with `az webapp up`
+- Configure startup command to run Flask via Gunicorn
+- Set `ENVIRONMENT=azure-code`
+
+### Manual Deploy (Azure CLI)
+
+```powershell
+az group create --name rg-py-cloud-test --location eastus
+az webapp up --name <unique-app-name> --resource-group rg-py-cloud-test --runtime "PYTHON:3.12" --sku B1
+az webapp config set --name <unique-app-name> --resource-group rg-py-cloud-test --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 app:app"
+az webapp config appsettings set --name <unique-app-name> --resource-group rg-py-cloud-test --settings ENVIRONMENT=azure-code
+```
+
+Then validate:
+- `https://<unique-app-name>.azurewebsites.net/dashboard`
+- `https://<unique-app-name>.azurewebsites.net/health`
 
 ## Verify Deployment
 
